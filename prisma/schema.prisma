@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id              String   @id @default(uuid())
+  name            String
+  wabaId          String   @unique
+  phoneNumberId   String
+  metaAccessToken String   // AES-256 encrypted at rest
+  qualityRating   String   @default("green") // green | yellow | red
+  planId          String
+  createdAt       DateTime @default(now())
+
+  contacts       Contact[]
+  campaigns      Campaign[]
+  templates      MessageTemplate[]
+  services       Service[]
+  appointments   Appointment[]
+  conversations  ConversationState[]
+}
+
+model Contact {
+  id          String    @id @default(uuid())
+  workspaceId String
+  phone       String                        // E.164 format
+  name        String?
+  attributes  Json      @default("{}")      // custom fields
+  tags        String[]
+  optedIn     Boolean   @default(false)
+  optedInAt   DateTime?
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId, phone])
+  @@index([workspaceId, optedIn])
+  @@index([workspaceId, tags])
+}
+
+model MessageTemplate {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  name           String                     // snake_case, used in API calls
+  category       String                     // MARKETING | UTILITY | AUTHENTICATION
+  language       String                     // en_US | hi | etc.
+  headerType     String?                    // TEXT | IMAGE | VIDEO | DOCUMENT
+  headerValue    String?
+  body           String                     // template body with {{variables}}
+  footer         String?
+  buttons        Json?                      // CTA / quick reply config
+  metaStatus     String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  metaTemplateId String?
+  createdAt      DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  campaigns Campaign[]
+
+  @@unique([workspaceId, name, language])
+}
+
+model Campaign {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  name           String
+  templateId     String
+  audienceType   String                     // segment | tag | all | csv
+  audienceRef    String?                    // segment ID or tag name
+  variableMap    Json     @default("{}")    // { "1": "first_name", "2": "order_id" }
+  status         String   @default("draft") // draft|scheduled|running|completed|paused|failed
+  scheduledAt    DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  totalContacts  Int      @default(0)
+  sent           Int      @default(0)
+  delivered      Int      @default(0)
+  read           Int      @default(0)
+  failed         Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id])
+  template  MessageTemplate @relation(fields: [templateId], references: [id])
+
+  @@index([workspaceId, status])
+  @@index([scheduledAt])
+}
+
+model OutboundMessage {
+  id            String   @id @default(uuid())
+  metaMessageId String   @unique
+  campaignId    String
+  workspaceId   String
+  contactId     String
+  phone         String
+  status        String   @default("sent") // sent | delivered | read | failed
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([campaignId])
+  @@index([workspaceId])
+  @@index([metaMessageId])
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  duration    Int      @default(30)
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id])
+  appointments Appointment[]
+
+  @@unique([workspaceId, name])
+}
+
+model Appointment {
+  id          String   @id @default(uuid())
+  workspaceId String
+  serviceId   String
+  clientPhone String
+  clientName  String
+  date        DateTime
+  duration    Int
+  status      String   @default("confirmed")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  service   Service   @relation(fields: [serviceId], references: [id])
+
+  @@index([workspaceId, date])
+  @@index([clientPhone])
+}
+
+model ConversationState {
+  id          String   @id @default(uuid())
+  workspaceId String
+  phone       String
+  state       String   @default("IDLE")
+  context     Json     @default("{}")
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId, phone])
+}
