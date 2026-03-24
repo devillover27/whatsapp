@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserPlus, Download } from 'lucide-react';
+import { UserPlus, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,7 +11,7 @@ const Contacts = () => {
 
   const fetchContacts = async () => {
     try {
-      const res = await axios.get('http://localhost:3000/contacts');
+      const res = await axios.get('http://localhost:3000/contacts', { headers: { 'x-workspace-id': 'default-workspace' }});
       setContacts(res.data);
     } catch (e) {
       console.error('Failed to fetch contacts', e);
@@ -23,33 +24,39 @@ const Contacts = () => {
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const text = event.target?.result as string;
-      
-      // Simple CSV Parse
-      const lines = text.split('\n').filter(line => line.trim() !== '');
-      if (lines.length < 2) return alert("Invalid CSV. Must have headers like Phone, Name, Tags.");
-      
-      const parsedContacts = lines.slice(1).map(line => {
-        const [phone, name, rawTags] = line.split(',');
-        return {
-          phone: phone?.trim(),
-          name: name?.trim() || '',
-          tags: rawTags ? rawTags.split('|').map(t => t.trim()) : []
-        };
-      }).filter(c => c.phone); // Require phone number
-
-      if (parsedContacts.length === 0) return alert("No valid phone numbers found in CSV.");
-
       try {
+        const data = event.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(sheet);
+
+        if (json.length === 0) return alert("No data found in the file.");
+
+        const parsedContacts = json.map(row => {
+          // Normalize keys to find Phone, Name, Tags (case-insensitive)
+          const keys = Object.keys(row);
+          const phoneKey = keys.find(k => k.toLowerCase() === 'phone');
+          const nameKey = keys.find(k => k.toLowerCase() === 'name');
+          const tagsKey = keys.find(k => k.toLowerCase() === 'tags');
+
+          return {
+            phone: String(row[phoneKey || ''] || '').trim(),
+            name: String(row[nameKey || ''] || '').trim(),
+            tags: row[tagsKey || ''] ? String(row[tagsKey || '']).split('|').map((t: string) => t.trim()) : []
+          };
+        }).filter(c => c.phone && c.phone !== 'undefined');
+
+        if (parsedContacts.length === 0) return alert("No valid phone numbers found in the file.");
+
         const res = await axios.post('http://localhost:3000/contacts/bulk', { contacts: parsedContacts }, { headers: { 'x-workspace-id': 'default-workspace' }});
-        alert(`Import Successful: ${res.data.count} contacts imported from CSV.`);
+        alert(`Import Successful: ${res.data.count} contacts imported.`);
         fetchContacts();
       } catch (err: any) {
-        alert("Failed to import CSV. Is API running? Error: " + err.message);
+        alert("Failed to import file. Error: " + err.message);
       }
     };
-    reader.readAsText(file);
-    // reset input
+    reader.readAsBinaryString(file);
     e.target.value = '';
   };
 
@@ -64,14 +71,14 @@ const Contacts = () => {
         <div style={{ display: 'flex', gap: '12px' }}>
           <input 
             type="file" 
-            accept=".csv" 
+            accept=".csv, .xlsx, .xls" 
             style={{ display: 'none' }} 
             ref={fileInputRef} 
             onChange={handleFileUpload} 
           />
           <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
-            <Download size={18} />
-            Import CSV
+            <FileSpreadsheet size={18} />
+            Import Contacts
           </button>
           <button className="btn" onClick={() => navigate('/contacts/new')}>
             <UserPlus size={18} />

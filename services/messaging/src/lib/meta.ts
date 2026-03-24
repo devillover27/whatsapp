@@ -37,3 +37,31 @@ export async function sendTemplateMessage(payload: TemplateMessagePayload) {
 
   return response.data
 }
+
+export async function getTemplates(wabaId: string, accessToken: string) {
+  const url = `${BASE_URL}/${wabaId}/message_templates`
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    timeout: 10000,
+  })
+  return response.data
+}
+
+export async function getWabaInsights(wabaId: string, accessToken: string) {
+  // Fetch messaging statistics from Meta
+  const url = `${BASE_URL}/${wabaId}/insights/messages_stats`
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    params: {
+      start: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60), // Last 7 days
+      end: Math.floor(Date.now() / 1000),
+      granularity: 'DAILY'
+    },
+    timeout: 10000,
+  })
+  return response.data
+}

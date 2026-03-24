@@ -120,9 +120,18 @@ const appointmentRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Dynamically import to avoid circular deps
     const { handleInboundMessage } = await import('../services/chatbot.service.js');
-    await handleInboundMessage(phone, message, 'text');
-
-    return reply.send({ success: true, info: 'Message processed through chatbot state machine' });
+    
+    try {
+      await handleInboundMessage(phone, message, 'text');
+      return reply.send({ success: true, info: 'Message processed through chatbot state machine' });
+    } catch (err: any) {
+      // Meta API will fail if token/phone are not configured — this is expected in dev
+      return reply.send({
+        success: false,
+        info: 'Chatbot state machine processed, but WhatsApp API call failed (expected in local dev without valid Meta credentials)',
+        error: err.message || String(err),
+      });
+    }
   });
 };
 

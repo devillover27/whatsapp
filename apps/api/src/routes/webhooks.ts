@@ -75,11 +75,54 @@ const webhookRoutes: FastifyPluginAsync = async (fastify) => {
                 }
               }
             }
+            // 3. Intercept message status updates (sent, delivered, read, failed)
+            if (change.field === 'messages' && change.value?.statuses) {
+              const statuses = change.value.statuses || [];
+              for (const status of statuses) {
+                const messageId = status.id; // metaMessageId
+                const messageStatus = status.status; // delivered | read | failed
+                
+                try {
+                  // Find the message first to get campaignId
+                  const msg = await prisma.outboundMessage.findUnique({
+                    where: { metaMessageId: messageId }
+                  });
+
+                  if (msg) {
+                    // Update message status
+                    await prisma.outboundMessage.update({
+                      where: { metaMessageId: messageId },
+                      data: { 
+                        status: messageStatus,
+                        updatedAt: new Date()
+                      }
+                    });
+
+                    // Increment campaign stats
+                    if (msg.campaignId) {
+                      const updateData: any = {};
+                      if (messageStatus === 'delivered') updateData.delivered = { increment: 1 };
+                      if (messageStatus === 'read') updateData.read = { increment: 1 };
+                      if (messageStatus === 'failed') updateData.failed = { increment: 1 };
+                      
+                      if (Object.keys(updateData).length > 0) {
+                        await prisma.campaign.update({
+                          where: { id: msg.campaignId },
+                          data: updateData
+                        });
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.error(`[Webhooks] Error updating status for msg ${messageId}:`, err);
+                }
+              }
+            }
           }
         }
       }
 
-      // 3. Push to queue for standard inbound message processing
+      // 4. Push to queue for standard inbound message processing
       await webhookQueue.add('process-webhook', req.body);
     } catch (e) {
       console.error("[Webhooks] Failed processing webhook:", e);

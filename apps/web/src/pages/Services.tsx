@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Briefcase, Plus, Trash2, ToggleLeft, ToggleRight, Clock, Edit3, X, Check } from 'lucide-react';
 import axios from 'axios';
 

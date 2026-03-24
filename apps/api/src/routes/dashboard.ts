@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify'
 import { prisma } from '../lib/prisma.js'
+import { getTemplates, getWabaInsights } from '@workspace/messaging/lib/meta.js'
 
 const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/stats', async (request, reply) => {
@@ -72,39 +73,126 @@ const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
     return { success: true, message: 'Dummy data seeded successfully!' }
   })
 
-  // Bulk CSV Import
+  // Bulk Import with Upsert to ensure optedIn = true
   fastify.post('/contacts/bulk', async (request, reply) => {
     const workspaceId = request.headers['x-workspace-id'] as string || 'default-workspace';
     const body = request.body as { contacts: Array<{phone: string, name: string, tags: string[]}> };
     
     if (!body?.contacts?.length) return { message: 'No contacts provided' };
 
-    const data = body.contacts.map(c => ({
-      workspaceId,
-      phone: c.phone,
-      name: c.name,
-      tags: c.tags || [],
-      optedIn: true
-    }));
-
-    await prisma.contact.createMany({ data, skipDuplicates: true });
-    return { success: true, count: data.length };
+    let count = 0;
+    try {
+      // Use transactional upserts to ensure all contacts are marked as optedIn
+      for (const c of body.contacts) {
+        if (!c.phone) continue;
+        await prisma.contact.upsert({
+          where: { workspaceId_phone: { workspaceId, phone: c.phone } },
+          update: { optedIn: true, name: c.name, tags: c.tags || [] },
+          create: { workspaceId, phone: c.phone, name: c.name, tags: c.tags || [], optedIn: true }
+        });
+        count++;
+      }
+      return { success: true, count };
+    } catch (e: any) {
+      return reply.status(500).send({ error: e.message });
+    }
   })
 
-  // Sync Meta Templates (Mock)
+  // Sync Meta Templates (REAL)
   fastify.post('/templates/sync', async (request, reply) => {
     const workspaceId = request.headers['x-workspace-id'] as string || 'default-workspace';
     
-    // Create random templats
-    await prisma.messageTemplate.createMany({
-      data: [
-        { workspaceId, name: 'order_update_v2', language: 'en_US', category: 'UTILITY', metaStatus: 'APPROVED', body: 'Your order {{1}} is out for delivery.' },
-        { workspaceId, name: 'flash_sale_50', language: 'en_US', category: 'MARKETING', metaStatus: 'APPROVED', body: 'Hi {{1}}, 50% off everything!' }
-      ],
-      skipDuplicates: true
-    });
+    try {
+      const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+      if (!workspace) return reply.status(404).send({ error: 'Workspace not found' });
+
+      // Fetch from Meta
+      const metaTemplates = await getTemplates(workspace.wabaId, workspace.metaAccessToken);
+      
+      if (!metaTemplates?.data) return { success: true, count: 0, message: 'No templates found on Meta' };
+
+      // Upsert into our DB
+      for (const t of metaTemplates.data) {
+        await prisma.messageTemplate.upsert({
+          where: { workspaceId_name_language: { workspaceId, name: t.name, language: t.language } },
+          update: {
+            category: t.category,
+            body: t.components.find((c: any) => c.type === 'BODY')?.text || '',
+            metaStatus: t.status,
+            metaTemplateId: t.id
+          },
+          create: {
+            workspaceId,
+            name: t.name,
+            language: t.language,
+            category: t.category,
+            body: t.components.find((c: any) => c.type === 'BODY')?.text || '',
+            metaStatus: t.status,
+            metaTemplateId: t.id
+          }
+        });
+      }
+      
+      return { success: true, count: metaTemplates.data.length };
+    } catch (e: any) {
+      return reply.status(500).send({ error: 'Failed to sync with Meta: ' + e.message });
+    }
+  })
+
+  // Delivery Analytics Report
+  fastify.get('/analytics/messages', async (request) => {
+    const workspaceId = request.headers['x-workspace-id'] as string || 'default-workspace';
     
-    return { success: true, message: 'Templates successfully synced from Meta Business Account!' };
+    const campaigns = await prisma.campaign.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    });
+
+    return campaigns.map(c => ({
+      id: c.id,
+      name: c.name,
+      sent: c.sent,
+      delivered: c.delivered,
+      read: c.read,
+      failed: c.failed,
+      deliveryRate: c.sent > 0 ? ((c.delivered / c.sent) * 100).toFixed(1) : 0,
+      readRate: c.sent > 0 ? ((c.read / c.sent) * 100).toFixed(1) : 0,
+      createdAt: c.createdAt
+    }));
+  })
+
+  // Booking / Appointment Report
+  fastify.get('/analytics/appointments', async (request) => {
+    const workspaceId = request.headers['x-workspace-id'] as string || 'default-workspace';
+    
+    const appointments = await prisma.appointment.findMany({
+      where: { workspaceId },
+      include: { service: true },
+      orderBy: { date: 'asc' }
+    });
+
+    const total = appointments.length;
+    const byService = appointments.reduce((acc: any, curr) => {
+      acc[curr.service.name] = (acc[curr.service.name] || 0) + 1;
+      return acc;
+    }, {});
+
+    return { total, byService, appointments };
+  })
+
+  // Meta Graph Insights
+  fastify.get('/analytics/meta-insights', async (request, reply) => {
+    const workspaceId = request.headers['x-workspace-id'] as string || 'default-workspace';
+    const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (!workspace) return reply.status(404).send({ error: 'Workspace not found' });
+
+    try {
+      const insights = await getWabaInsights(workspace.wabaId, workspace.metaAccessToken);
+      return insights;
+    } catch (e: any) {
+      return { error: 'Could not fetch Meta insights', message: e.message };
+    }
   })
 
   // Create Template endpoint manually

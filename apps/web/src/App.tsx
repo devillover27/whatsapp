@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
@@ -10,6 +9,10 @@ import Templates from './pages/Templates';
 import CreateTemplate from './pages/CreateTemplate';
 import Appointments from './pages/Appointments';
 import Services from './pages/Services';
+import Reports from './pages/Reports';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import DataDeletion from './pages/DataDeletion';
+import TermsOfService from './pages/TermsOfService';
 import './index.css';
 
 function App() {
@@ -28,6 +31,10 @@ function App() {
             <Route path="/templates/new" element={<CreateTemplate />} />
             <Route path="/appointments" element={<Appointments />} />
             <Route path="/services" element={<Services />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/data-deletion" element={<DataDeletion />} />
+            <Route path="/terms" element={<TermsOfService />} />
           </Routes>
         </main>
       </div>

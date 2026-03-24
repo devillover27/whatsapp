@@ -45,13 +45,17 @@ const start = async () => {
     // Ensure default workspace exists to prevent 500 FK constraint errors
     await prisma.workspace.upsert({
       where: { id: 'default-workspace' },
-      update: {},
+      update: {
+        phoneNumberId: process.env.META_PHONE_NUMBER_ID || '123456789',
+        wabaId: process.env.META_WABA_ID || '123456789',
+        metaAccessToken: process.env.META_ACCESS_TOKEN || 'dummy-token',
+      },
       create: {
         id: 'default-workspace',
         name: 'Default Workspace',
-        phoneNumberId: '123456789',
-        wabaId: '123456789',
-        metaAccessToken: 'dummy-token',
+        phoneNumberId: process.env.META_PHONE_NUMBER_ID || '123456789',
+        wabaId: process.env.META_WABA_ID || '123456789',
+        metaAccessToken: process.env.META_ACCESS_TOKEN || 'dummy-token',
         planId: 'FREE'
       }
     })

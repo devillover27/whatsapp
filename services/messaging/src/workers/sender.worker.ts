@@ -2,7 +2,7 @@ import { Worker, Job } from 'bullmq'
 import { redisConnection } from '../redis/connection.js'
 import { acquireToken } from '../lib/rate-limiter.js'
 import { sendTemplateMessage } from '../lib/meta.js'
-import { prisma } from '@workspace/api/lib/prisma'
+import { prisma } from '../../../../apps/api/src/lib/prisma.js'
 
 const CONCURRENCY = Number(process.env.SENDER_CONCURRENCY) || 50
 
@@ -49,7 +49,12 @@ const worker = new Worker(
         }
       })
 
-      // 4. Update campaign stats (optional, could be async)
+      // 4. Update campaign stats
+      await prisma.campaign.update({
+        where: { id: campaignId },
+        data: { sent: { increment: 1 } }
+      })
+      
       console.log(`Message sent to ${phone}: ${metaMessageId}`)
 
     } catch (error: any) {
@@ -60,6 +65,7 @@ const worker = new Worker(
   {
     connection: redisConnection as any,
     concurrency: CONCURRENCY,
+    skipVersionCheck: true,
   }
 )
 
