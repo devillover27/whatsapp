@@ -22,9 +22,14 @@ const Services = () => {
     try {
       setLoading(true);
       const res = await axios.get('http://localhost:3000/services');
-      setServices(res.data);
+      if (Array.isArray(res.data)) {
+        setServices(res.data);
+      } else {
+        setServices([]);
+      }
     } catch (e) {
       console.error('Failed to fetch services', e);
+      setServices([]);
     } finally {
       setLoading(false);
     }
@@ -86,99 +91,90 @@ const Services = () => {
     fetchServices();
   }, []);
 
-  const activeCount = services.filter(s => s.isActive).length;
+  const activeCount = Array.isArray(services) ? services.filter(s => s.isActive).length : 0;
+  const avgDuration = (Array.isArray(services) && services.length > 0) 
+    ? Math.round(services.reduce((sum, s) => sum + (s.duration || 0), 0) / services.length) 
+    : 0;
 
   return (
-    <div className="animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <h1 className="title" style={{ margin: 0 }}>Services</h1>
+    <div className="animate-slide-up">
+      <div className="flex-between mb-4">
+        <h1 className="title" style={{ margin: 0 }}>Business Services</h1>
         <button className="btn" onClick={() => { setShowForm(!showForm); setEditingId(null); }}>
-          <Plus size={18} />
-          Add Service
+          {showForm ? <X size={18} /> : <Plus size={18} />}
+          {showForm ? 'Cancel' : 'Add Service'}
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid-cards" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+      <div className="grid-cards">
         <div className="glass-panel" style={{ textAlign: 'center' }}>
-          <Briefcase size={28} style={{ color: '#3b82f6', marginBottom: 8 }} />
-          <div style={{ fontSize: '2rem', fontWeight: 700 }}>{services.length}</div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Total Services</div>
-        </div>
-        <div className="glass-panel" style={{ textAlign: 'center' }}>
-          <Check size={28} style={{ color: '#22c55e', marginBottom: 8 }} />
-          <div style={{ fontSize: '2rem', fontWeight: 700 }}>{activeCount}</div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Active</div>
-        </div>
-        <div className="glass-panel" style={{ textAlign: 'center' }}>
-          <Clock size={28} style={{ color: '#a78bfa', marginBottom: 8 }} />
-          <div style={{ fontSize: '2rem', fontWeight: 700 }}>
-            {services.length > 0 ? Math.round(services.reduce((sum, s) => sum + s.duration, 0) / services.length) : 0}
+          <div className="flex-center gap-2 mb-2 text-secondary" style={{ justifyContent: 'center' }}>
+            <Briefcase size={20} className="text-accent" />
+            <h3 style={{ fontSize: '0.9rem' }}>Total Services</h3>
           </div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Avg Duration (min)</div>
+          <div className="stats-value" style={{ fontSize: '2rem' }}>{Array.isArray(services) ? services.length : 0}</div>
+        </div>
+        <div className="glass-panel" style={{ textAlign: 'center' }}>
+          <div className="flex-center gap-2 mb-2 text-secondary" style={{ justifyContent: 'center' }}>
+            <Check size={20} style={{ color: 'var(--success)' }} />
+            <h3 style={{ fontSize: '0.9rem' }}>Active</h3>
+          </div>
+          <div className="stats-value" style={{ fontSize: '2rem' }}>{activeCount}</div>
+        </div>
+        <div className="glass-panel" style={{ textAlign: 'center' }}>
+          <div className="flex-center gap-2 mb-2 text-secondary" style={{ justifyContent: 'center' }}>
+            <Clock size={20} style={{ color: '#a78bfa' }} />
+            <h3 style={{ fontSize: '0.9rem' }}>Avg. Duration</h3>
+          </div>
+          <div className="stats-value" style={{ fontSize: '2rem' }}>{avgDuration} <span style={{ fontSize: '1rem', fontWeight: 500 }}>min</span></div>
         </div>
       </div>
 
-      {/* Create Form */}
       {showForm && (
-        <div className="glass-panel" style={{ marginBottom: '24px' }}>
-          <h3 style={{ marginBottom: '16px' }}>New Service</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 1fr auto', gap: '12px', alignItems: 'end' }}>
+        <div className="glass-panel mt-4 mb-4" style={{ border: '2px solid var(--accent-soft)' }}>
+          <h3 className="mb-4">Create New Service</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
             <div>
-              <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '6px' }}>Service Name</label>
+              <label className="text-secondary mb-2" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600 }}>Service Name</label>
               <input
                 type="text"
-                placeholder="e.g. Dental Checkup"
+                className="input-field"
+                placeholder="e.g. Health Checkup"
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                style={{
-                  width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)',
-                  fontFamily: 'inherit', fontSize: '0.95rem', outline: 'none',
-                }}
+                style={{ background: '#f8fafc' }}
               />
             </div>
             <div>
-              <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '6px' }}>Duration (min)</label>
+              <label className="text-secondary mb-2" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600 }}>Duration (min)</label>
               <input
                 type="number"
+                className="input-field"
                 value={formData.duration}
                 onChange={e => setFormData({ ...formData, duration: parseInt(e.target.value) || 30 })}
-                style={{
-                  width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)',
-                  fontFamily: 'inherit', fontSize: '0.95rem', outline: 'none',
-                }}
+                style={{ background: '#f8fafc' }}
               />
             </div>
-            <div>
-              <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '6px' }}>Description</label>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label className="text-secondary mb-2" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600 }}>Description</label>
               <input
                 type="text"
-                placeholder="Optional description"
+                className="input-field"
+                placeholder="Briefly describe what this service includes..."
                 value={formData.description}
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
-                style={{
-                  width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)',
-                  fontFamily: 'inherit', fontSize: '0.95rem', outline: 'none',
-                }}
+                style={{ background: '#f8fafc' }}
               />
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn" onClick={createService}>
-                <Check size={16} /> Create
-              </button>
-              <button className="btn btn-secondary" onClick={() => setShowForm(false)}>
-                <X size={16} />
-              </button>
-            </div>
+          </div>
+          <div className="flex-center gap-3 mt-4" style={{ justifyContent: 'flex-end' }}>
+            <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Discard</button>
+            <button className="btn" onClick={createService}>Confirm & Save</button>
           </div>
         </div>
       )}
 
-      {/* Services Table */}
-      <div className="glass-panel">
+      <div className="glass-panel mt-4">
         <div className="table-container">
           <table>
             <thead>
@@ -187,83 +183,72 @@ const Services = () => {
                 <th>Duration</th>
                 <th>Description</th>
                 <th>Status</th>
-                <th>Created</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading...</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '60px' }}>
+                  <div className="text-secondary">Retrieving services...</div>
+                </td></tr>
               )}
-              {!loading && services.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>No services yet. Click "Add Service" to create one.</td></tr>
+              {!loading && (!Array.isArray(services) || services.length === 0) && (
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '60px' }}>
+                  <div className="text-secondary">No services configured yet.</div>
+                </td></tr>
               )}
-              {services.map(svc => (
+              {Array.isArray(services) && services.map(svc => (
                 <tr key={svc.id}>
-                  <td style={{ fontWeight: 500 }}>
+                  <td>
                     {editingId === svc.id ? (
                       <input
+                        className="input-field"
                         value={formData.name}
                         onChange={e => setFormData({ ...formData, name: e.target.value })}
-                        style={{
-                          padding: '6px 10px', background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid var(--accent)', borderRadius: '6px',
-                          color: 'var(--text-primary)', fontFamily: 'inherit', outline: 'none',
-                        }}
+                        style={{ padding: '4px 8px', height: 'auto', fontSize: '0.9rem' }}
                       />
-                    ) : svc.name}
+                    ) : (
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{svc.name}</div>
+                    )}
                   </td>
                   <td>
                     {editingId === svc.id ? (
                       <input
                         type="number"
+                        className="input-field"
                         value={formData.duration}
                         onChange={e => setFormData({ ...formData, duration: parseInt(e.target.value) || 30 })}
-                        style={{
-                          width: '70px', padding: '6px 10px', background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid var(--accent)', borderRadius: '6px',
-                          color: 'var(--text-primary)', fontFamily: 'inherit', outline: 'none',
-                        }}
+                        style={{ padding: '4px 8px', height: 'auto', fontSize: '0.9rem', width: '80px' }}
                       />
-                    ) : `${svc.duration} min`}
+                    ) : (
+                      <span className="badge" style={{ background: '#f1f5f9', color: '#475569' }}>{svc.duration} min</span>
+                    )}
                   </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>
+                  <td>
                     {editingId === svc.id ? (
                       <input
+                        className="input-field"
                         value={formData.description}
                         onChange={e => setFormData({ ...formData, description: e.target.value })}
-                        style={{
-                          padding: '6px 10px', background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid var(--accent)', borderRadius: '6px',
-                          color: 'var(--text-primary)', fontFamily: 'inherit', outline: 'none',
-                        }}
+                        style={{ padding: '4px 8px', height: 'auto', fontSize: '0.9rem' }}
                       />
-                    ) : (svc.description || '—')}
+                    ) : (
+                      <span className="text-secondary">{svc.description || '—'}</span>
+                    )}
                   </td>
                   <td>
-                    <span
-                      style={{
-                        padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
-                        textTransform: 'uppercase', letterSpacing: '0.05em',
-                        background: svc.isActive ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                        color: svc.isActive ? '#22c55e' : '#ef4444',
-                        border: `1px solid ${svc.isActive ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
-                      }}
-                    >
-                      {svc.isActive ? 'Active' : 'Inactive'}
+                    <span className={`badge ${svc.isActive ? 'success' : 'pending'}`}>
+                      {svc.isActive ? 'Active' : 'Disabled'}
                     </span>
                   </td>
-                  <td style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                    {new Date(svc.createdAt).toLocaleDateString()}
-                  </td>
                   <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div className="flex-center gap-2">
                       {editingId === svc.id ? (
                         <>
-                          <button className="btn" style={{ padding: '4px 10px', fontSize: '0.75rem' }} onClick={saveEdit}>
+                          <button className="btn" style={{ padding: '6px 12px', fontSize: '0.75rem', height: 'auto' }} onClick={saveEdit}>
                             <Check size={14} /> Save
                           </button>
-                          <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.75rem' }} onClick={cancelEdit}>
+                          <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.75rem', height: 'auto' }} onClick={cancelEdit}>
                             <X size={14} />
                           </button>
                         </>
@@ -271,27 +256,27 @@ const Services = () => {
                         <>
                           <button
                             className="btn btn-secondary"
-                            style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                            style={{ padding: '6px', height: 'auto', borderRadius: '8px' }}
                             onClick={() => toggleActive(svc.id, svc.isActive)}
                             title={svc.isActive ? 'Deactivate' : 'Activate'}
                           >
-                            {svc.isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                            {svc.isActive ? <ToggleRight size={18} className="text-accent" /> : <ToggleLeft size={18} className="text-secondary" />}
                           </button>
                           <button
                             className="btn btn-secondary"
-                            style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                            style={{ padding: '6px', height: 'auto', borderRadius: '8px' }}
                             onClick={() => startEdit(svc)}
                             title="Edit"
                           >
-                            <Edit3 size={14} />
+                            <Edit3 size={16} />
                           </button>
                           <button
                             className="btn btn-secondary"
-                            style={{ padding: '4px 10px', fontSize: '0.75rem', borderColor: 'rgba(239,68,68,0.3)' }}
+                            style={{ padding: '6px', height: 'auto', borderRadius: '8px', color: 'var(--error)' }}
                             onClick={() => deleteService(svc.id)}
                             title="Delete"
                           >
-                            <Trash2 size={14} style={{ color: '#ef4444' }} />
+                            <Trash2 size={16} />
                           </button>
                         </>
                       )}

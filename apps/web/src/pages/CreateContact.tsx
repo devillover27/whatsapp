@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, UserPlus } from 'lucide-react';
 
 const CreateContact = () => {
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [tags, setTags] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!phone) return alert("Phone number is required!");
+    
     try {
-      if (!phone) return alert("Phone number is required!");
+      setLoading(true);
       await axios.post('http://localhost:3000/contacts', {
         phone: phone,
         name,
@@ -21,60 +24,66 @@ const CreateContact = () => {
       }, { headers: { 'x-workspace-id': 'default-workspace' }});
       navigate('/contacts');
     } catch (e: any) {
-      alert("Error: " + e.message);
+      alert("Error: " + (e.response?.data?.error || e.message));
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="animate-fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-        <button className="btn btn-secondary" onClick={() => navigate('/contacts')} style={{ padding: '8px' }}>
-          <ArrowLeft size={18} />
-        </button>
-        <h1 className="title" style={{ margin: 0 }}>Add New Contact</h1>
+    <div className="animate-slide-up">
+      <div className="flex-between mb-4">
+        <div className="flex-center gap-4">
+          <button className="btn btn-secondary" onClick={() => navigate('/contacts')} style={{ padding: '8px', borderRadius: '12px' }}>
+            <ArrowLeft size={18} />
+          </button>
+          <h1 className="title" style={{ margin: 0 }}>Add New Contact</h1>
+        </div>
       </div>
 
       <div className="glass-panel" style={{ maxWidth: '600px' }}>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Phone Number</label>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="text-secondary mb-2" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600 }}>Phone Number</label>
             <input 
               type="tel" 
+              className="input-field"
               value={phone} 
               onChange={e => setPhone(e.target.value)}
-              placeholder="+1234567890"
-              style={{ padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', color: 'white', fontSize: '1rem' }}
+              placeholder="+91 98765 43210"
               required 
             />
+            <p className="text-secondary mt-2" style={{ fontSize: '0.7rem' }}>Include country code (e.g. +91, +1).</p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Full Name</label>
+          <div className="mb-4">
+            <label className="text-secondary mb-2" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600 }}>Full Name</label>
             <input 
               type="text" 
+              className="input-field"
               value={name} 
               onChange={e => setName(e.target.value)}
               placeholder="John Doe"
-              style={{ padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', color: 'white', fontSize: '1rem' }}
               required 
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Tags (comma separated)</label>
+          <div className="mb-4">
+            <label className="text-secondary mb-2" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600 }}>Tags (comma separated)</label>
             <input 
               type="text" 
+              className="input-field"
               value={tags} 
               onChange={e => setTags(e.target.value)}
-              placeholder="VIP, New Lead, NYC"
-              style={{ padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', color: 'white', fontSize: '1rem' }}
+              placeholder="VIP, Frequent Flyer, NYC"
             />
           </div>
 
-          <button type="submit" className="btn" style={{ alignSelf: 'flex-start', marginTop: '16px' }}>
-            <Save size={18} /> Save Contact
-          </button>
+          <div className="mt-8" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+             <button type="submit" className="btn" disabled={loading} style={{ padding: '12px 24px' }}>
+               <UserPlus size={18} /> {loading ? 'Saving...' : 'Save Contact'}
+             </button>
+          </div>
         </form>
       </div>
     </div>

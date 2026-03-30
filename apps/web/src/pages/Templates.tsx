@@ -1,18 +1,27 @@
 import { useState, useEffect } from 'react';
-import { FilePlus, Trash2 } from 'lucide-react';
+import { FilePlus, Trash2, Globe, Bookmark } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 const Templates = () => {
   const navigate = useNavigate();
   const [templates, setTemplates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const fetchTemplates = async () => {
     try {
+      setLoading(true);
       const res = await axios.get('http://localhost:3000/templates');
-      setTemplates(res.data);
+      if (Array.isArray(res.data)) {
+        setTemplates(res.data);
+      } else {
+        setTemplates([]);
+      }
     } catch (e) {
       console.error('Failed to fetch templates', e);
+      setTemplates([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -20,19 +29,19 @@ const Templates = () => {
     try {
       await axios.post('http://localhost:3000/templates/sync', {}, { headers: { 'x-workspace-id': 'default-workspace' }});
       fetchTemplates();
-      alert("Templates successfully synced with Meta Cloud API!");
+      alert("Templates successfully synced!");
     } catch (e: any) {
-      alert("Sync failed. Check if your API is running. Error: " + e.message);
+      alert("Sync failed: " + e.message);
     }
   };
 
   const deleteTemplate = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to delete template "${name}"?`)) return;
+    if (!window.confirm(`Delete template "${name}"?`)) return;
     try {
       await axios.delete(`http://localhost:3000/templates/${id}`, { headers: { 'x-workspace-id': 'default-workspace' }});
       fetchTemplates();
     } catch (e: any) {
-      alert("Failed to delete template: " + e.message);
+      alert("Delete failed: " + e.message);
     }
   }
 
@@ -41,12 +50,12 @@ const Templates = () => {
   }, []);
 
   return (
-    <div className="animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+    <div className="animate-slide-up">
+      <div className="flex-between mb-4">
         <h1 className="title" style={{ margin: 0 }}>Message Templates</h1>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="flex-center gap-2">
           <button className="btn btn-secondary" onClick={syncMeta}>
-            <FilePlus size={18} />
+            <Globe size={18} />
             Sync from Meta
           </button>
           <button className="btn" onClick={() => navigate('/templates/new')}>
@@ -56,31 +65,64 @@ const Templates = () => {
         </div>
       </div>
 
-      <div className="grid-cards">
-        {templates.length === 0 && (
-          <p>No templates found. Generate test data from Dashboard!</p>
-        )}
-        {templates.map(t => (
-          <div key={t.id} className="card animate-fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>{t.name}</h3>
-                <span className={`badge badge-${t.metaStatus.toLowerCase()}`}>{t.metaStatus}</span>
+      {loading ? (
+        <div className="glass-panel" style={{ textAlign: 'center', padding: '60px' }}>
+          <p className="text-secondary">Loading templates...</p>
+        </div>
+      ) : (
+        <div className="grid-cards">
+          {(!Array.isArray(templates) || templates.length === 0) ? (
+            <div className="glass-panel" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px' }}>
+               <p className="text-secondary">No templates found. Start by syncing with Meta or creating a new one.</p>
+            </div>
+          ) : (
+            templates.map(t => (
+              <div key={t.id || t.name} className="glass-panel">
+                <div className="flex-between mb-4">
+                  <div className="flex-center gap-2">
+                    <Bookmark size={18} className="text-accent" />
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t.name}</h3>
+                  </div>
+                  <button 
+                    onClick={() => deleteTemplate(t.id, t.name)} 
+                    className="btn btn-secondary"
+                    style={{ padding: '6px', border: 'none', background: 'transparent', color: 'var(--error)', boxShadow: 'none' }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                
+                <div className="flex-center gap-2 mb-4">
+                  <span className={`badge ${t.metaStatus === 'APPROVED' ? 'success' : 'pending'}`}>
+                    {t.metaStatus || 'PENDING'}
+                  </span>
+                  <span className="badge" style={{ background: '#f1f5f9', color: '#64748b' }}>
+                    {t.category || 'MARKETING'}
+                  </span>
+                </div>
+
+                <div style={{ 
+                  background: '#f8fafc', 
+                  padding: '16px', 
+                  borderRadius: 'var(--radius-md)', 
+                  fontSize: '0.85rem', 
+                  color: '#334155',
+                  border: '1px solid #e2e8f0',
+                  lineHeight: '1.6',
+                  maxHeight: '150px',
+                  overflow: 'hidden'
+                }}>
+                  {t.body || 'No message content defined.'}
+                </div>
+                
+                <div className="mt-4 text-secondary" style={{ fontSize: '0.75rem' }}>
+                  Language: {t.language || 'en_US'}
+                </div>
               </div>
-              <button onClick={() => deleteTemplate(t.id, t.name)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '4px' }} title="Delete Template">
-                <Trash2 size={18} />
-              </button>
-            </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '16px' }}>
-              Category: {t.category}<br/>
-              Language: {t.language}
-            </p>
-            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>
-              {t.body || 'No Body Component'}
-            </div>
-          </div>
-        ))}
-      </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 };

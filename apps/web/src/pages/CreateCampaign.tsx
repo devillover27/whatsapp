@@ -1,24 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Send } from 'lucide-react';
 
 const CreateCampaign = () => {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [templateId, setTemplateId] = useState('');
   const [templates, setTemplates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     axios.get('http://localhost:3000/templates')
-      .then(res => setTemplates(res.data))
-      .catch(console.error);
+      .then(res => {
+        if (Array.isArray(res.data)) {
+          setTemplates(res.data);
+        } else {
+          setTemplates([]);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        setTemplates([]);
+      });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name || !templateId) return alert("Please fill all required fields!");
+    
     try {
-      if (!name || !templateId) return alert("Fill all required fields!");
+      setLoading(true);
       await axios.post('http://localhost:3000/campaigns', {
         name,
         templateId,
@@ -26,62 +38,74 @@ const CreateCampaign = () => {
       }, { headers: { 'x-workspace-id': 'default-workspace' }});
       navigate('/campaigns');
     } catch (e: any) {
-      alert("Error: " + e.message);
+      alert("Error: " + (e.response?.data?.error || e.message));
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="animate-fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-        <button className="btn btn-secondary" onClick={() => navigate('/campaigns')} style={{ padding: '8px' }}>
-          <ArrowLeft size={18} />
-        </button>
-        <h1 className="title" style={{ margin: 0 }}>Create New Campaign</h1>
+    <div className="animate-slide-up">
+      <div className="flex-between mb-4">
+        <div className="flex-center gap-4">
+          <button className="btn btn-secondary" onClick={() => navigate('/campaigns')} style={{ padding: '8px', borderRadius: '12px' }}>
+            <ArrowLeft size={18} />
+          </button>
+          <h1 className="title" style={{ margin: 0 }}>Create New Campaign</h1>
+        </div>
       </div>
 
-      <div className="glass-panel" style={{ maxWidth: '600px' }}>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Campaign Name</label>
+      <div className="glass-panel" style={{ maxWidth: '640px' }}>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="text-secondary mb-2" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600 }}>Campaign Name</label>
             <input 
               type="text" 
+              className="input-field"
               value={name} 
               onChange={e => setName(e.target.value)}
-              placeholder="e.g. Black Friday Promo"
-              style={{ padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', color: 'white', fontSize: '1rem' }}
+              placeholder="e.g. Summer Special Offer"
               required 
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Message Template</label>
+          <div className="mb-4">
+            <label className="text-secondary mb-2" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600 }}>Message Template</label>
             <select 
+              className="input-field"
               value={templateId} 
               onChange={e => setTemplateId(e.target.value)}
-              style={{ padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', color: 'white', fontSize: '1rem' }}
               required
+              style={{ appearance: 'none' }}
             >
               <option value="" disabled>Select a Template</option>
-              {templates.map(t => (
-                <option key={t.id} value={t.id} style={{ color: 'black' }}>{t.name} ({t.category})</option>
+              {Array.isArray(templates) && templates.map(t => (
+                <option key={t.id || t.name} value={t.id} style={{ color: '#1e293b' }}>
+                  {t.name} ({t.category || 'MARKETING'})
+                </option>
               ))}
             </select>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Audience</label>
+          <div className="mb-4">
+            <label className="text-secondary mb-2" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600 }}>Target Audience</label>
             <select 
+              className="input-field"
               defaultValue="all"
-              style={{ padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', color: 'white', fontSize: '1rem' }}
+              style={{ appearance: 'none' }}
             >
-              <option value="all" style={{ color: 'black' }}>All Opted-In Contacts</option>
+              <option value="all" style={{ color: '#1e293b' }}>All Opted-In Contacts ({templates.length > 0 ? 'Ready' : 'No Contacts'})</option>
             </select>
+            <p className="text-secondary mt-2" style={{ fontSize: '0.75rem' }}>
+              Messages will only be sent to contacts who have explicitly opted-in.
+            </p>
           </div>
 
-          <button type="submit" className="btn" style={{ alignSelf: 'flex-start', marginTop: '16px' }}>
-            <Save size={18} /> Launch Campaign
-          </button>
+          <div className="mt-8" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+             <button type="submit" className="btn" disabled={loading} style={{ padding: '12px 24px' }}>
+               <Send size={18} /> {loading ? 'Launching...' : 'Launch Campaign'}
+             </button>
+          </div>
         </form>
       </div>
     </div>
