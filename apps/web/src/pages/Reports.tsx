@@ -9,20 +9,8 @@ import {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const Reports = () => {
-  const [msgStats, setMsgStats] = useState<any[]>([
-    { id: 'd1', name: 'Welcome Promo', sent: 1200, delivered: 1150, read: 980, deliveryRate: 95.8, readRate: 85.2 },
-    { id: 'd2', name: 'Spring Sale', sent: 850, delivered: 820, read: 610, deliveryRate: 96.5, readRate: 74.4 },
-    { id: 'd3', name: 'Feedback Request', sent: 300, delivered: 290, read: 250, deliveryRate: 96.7, readRate: 86.2 }
-  ]);
-  const [appStats, setAppStats] = useState<any>({
-    total: 145,
-    byService: {
-      'Haircut': 65,
-      'Colors': 42,
-      'Spa': 28,
-      'Styling': 10
-    }
-  });
+  const [msgStats, setMsgStats] = useState<any[]>([]);
+  const [appStats, setAppStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
@@ -34,13 +22,12 @@ const Reports = () => {
         axios.get('http://localhost:3000/analytics/appointments', { headers })
       ]);
       
-      const mData = Array.isArray(msgRes.data) ? msgRes.data : [];
-      const aData = appRes.data || { total: 0, byService: {} };
-
-      if (mData.length > 0) setMsgStats(mData);
-      if (aData.total > 0 || Object.keys(aData.byService || {}).length > 0) setAppStats(aData);
+      setMsgStats(Array.isArray(msgRes.data) ? msgRes.data : []);
+      setAppStats(appRes.data || { total: 0, byService: {} });
     } catch (e) {
-      console.log("Using fallback dummy data for reports");
+      console.error('Failed to fetch analytics', e);
+      setMsgStats([]);
+      setAppStats({ total: 0, byService: {} });
     } finally {
       setLoading(false);
     }

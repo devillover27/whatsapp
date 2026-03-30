@@ -4,17 +4,13 @@ import axios from 'axios';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
-    totalContacts: 1240,
-    activeCampaigns: 3,
-    messagesSent: 4520,
-    deliveryRate: 98.2
+    totalContacts: 0,
+    activeCampaigns: 0,
+    messagesSent: 0,
+    deliveryRate: 0
   });
 
-  const [campaigns, setCampaigns] = useState<any[]>([
-    { id: '1', name: 'Summer Collection Launch', status: 'completed', createdAt: new Date().toISOString(), sent: 450 },
-    { id: '2', name: 'Flash Sale Reminder', status: 'active', createdAt: new Date().toISOString(), sent: 120 },
-    { id: '3', name: 'Welcome Series', status: 'completed', createdAt: new Date().toISOString(), sent: 670 }
-  ]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
 
   const fetchData = async () => {
     try {
@@ -23,15 +19,16 @@ const Dashboard = () => {
         axios.get('http://localhost:3000/campaigns')
       ]);
       
-      if (statsRes.data && Object.keys(statsRes.data).length > 0) {
+      if (statsRes.data) {
         setStats(statsRes.data);
       }
       
-      if (Array.isArray(campsRes.data) && campsRes.data.length > 0) {
+      if (Array.isArray(campsRes.data)) {
         setCampaigns(campsRes.data.slice(0, 5));
       }
     } catch (e) {
-      console.error("Using fallback dummy data due to connection error");
+      console.error(e);
+      setCampaigns([]);
     }
   };
 

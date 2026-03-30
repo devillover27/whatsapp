@@ -28,17 +28,13 @@ const statusMap: Record<string, string> = {
 };
 
 const Appointments = () => {
-  const [appointments, setAppointments] = useState<AppointmentData[]>([
-    { id: '1', clientName: 'Jessica Williams', clientPhone: '+91 91100 12345', date: new Date().toISOString(), duration: 30, status: 'confirmed', notes: null, service: { id: 's1', name: 'Haircut', duration: 30 }, createdAt: '' },
-    { id: '2', clientName: 'David Smith', clientPhone: '+91 99911 88822', date: new Date(Date.now() + 86400000).toISOString(), duration: 60, status: 'confirmed', notes: null, service: { id: 's2', name: 'Facial', duration: 60 }, createdAt: '' },
-    { id: '3', clientName: 'Anita Gupta', clientPhone: '+91 92233 44455', date: new Date(Date.now() - 3600000).toISOString(), duration: 30, status: 'completed', notes: null, service: { id: 's3', name: 'Spa', duration: 30 }, createdAt: '' }
-  ]);
+  const [appointments, setAppointments] = useState<AppointmentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
-  const [total, setTotal] = useState(145);
-  const [todayCount, setTodayCount] = useState(12);
-  const [upcomingCount, setUpcomingCount] = useState(8);
-  const [confirmedCount, setConfirmedCount] = useState(24);
+  const [total, setTotal] = useState(0);
+  const [todayCount, setTodayCount] = useState(0);
+  const [upcomingCount, setUpcomingCount] = useState(0);
+  const [confirmedCount, setConfirmedCount] = useState(0);
 
   const fetchAppointments = async () => {
     try {
@@ -51,23 +47,19 @@ const Appointments = () => {
       const appts = res.data?.appointments || [];
       const pagination = res.data?.pagination || { total: 0 };
       
-      if (appts.length > 0) {
-        setAppointments(appts);
-        setTotal(pagination.total);
-      } else {
-        // Keep dummy data if no data returned
-      }
+      setAppointments(appts);
+      setTotal(pagination.total);
 
       const now = new Date();
       const todayStr = now.toISOString().split('T')[0];
       
-      if (appts.length > 0) {
-        setTodayCount(appts.filter((a: any) => a.date && a.date.startsWith(todayStr)).length);
-        setUpcomingCount(appts.filter((a: any) => a.date && new Date(a.date) > now && a.status === 'confirmed').length);
-        setConfirmedCount(appts.filter((a: any) => a.status === 'confirmed').length);
-      }
+      setTodayCount(appts.filter((a: any) => a.date && a.date.startsWith(todayStr)).length);
+      setUpcomingCount(appts.filter((a: any) => a.date && new Date(a.date) > now && a.status === 'confirmed').length);
+      setConfirmedCount(appts.filter((a: any) => a.status === 'confirmed').length);
     } catch (e) {
-      console.log("Using fallback dummy data for appointments");
+      console.error('Failed to fetch appointments', e);
+      setAppointments([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
